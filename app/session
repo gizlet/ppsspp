@@ -45,6 +45,18 @@ if [ -r /etc/resolv.conf ]; then
     mount --bind "$root/run/resolv.conf" "$root/etc/resolv.conf"
 fi
 
+# bind_ro SOURCE TARGET: binds SOURCE and the mounts below it, read-only.
+# Without recursive mount attributes, each mount in the tree is made
+# read-only in turn; a failure stops the launch.
+bind_ro() {
+    mount --rbind -o ro=recursive "$1" "$2" 2>/dev/null || {
+        mount --rbind "$1" "$2"
+        findmnt -R -l -n -o TARGET "$2" | while IFS= read -r target; do
+            mount -o remount,bind,ro "$target"
+        done
+    }
+}
+
 # The user's own files: /home and every card mounted under /media and /mnt,
 # read-only. PPSSPP runs as nobody and keeps its memory stick (saves, states,
 # settings) in its own save folder. A card mounted after the start appears
@@ -52,21 +64,13 @@ fi
 # write to it.
 for dir in /home /media /mnt; do
     [ -d "$dir" ] || continue
-    mount --rbind -o ro=recursive "$dir" "$root$dir" 2>/dev/null || {
-        # Without recursive mount attributes, each mount in the tree is made
-        # read-only in turn; a failure stops the launch.
-        mount --rbind "$dir" "$root$dir"
-        findmnt -R -l -n -o TARGET "$root$dir" | while IFS= read -r target; do
-            mount -o remount,bind,ro "$target"
-        done
-    }
+    bind_ro "$dir" "$root$dir"
 done
 case $games in
     /home | /home/* | /media | /media/* | /mnt | /mnt/*) browse=$games ;;
     *)
         mkdir "$root/run/games"
-        mount --bind "$games" "$root/run/games"
-        mount -o remount,bind,ro,nosuid,nodev,noexec "$root/run/games"
+        bind_ro "$games" "$root/run/games"
         browse=/run/games
         ;;
 esac
