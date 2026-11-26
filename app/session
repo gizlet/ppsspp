@@ -38,13 +38,21 @@ for device in /dev/dri/card* /dev/dri/renderD* /dev/input/event* /dev/snd/*; do
     case ",$groups," in *",$group,"*) ;; *) [ "$group" -eq 0 ] || groups="$groups,$group" ;; esac
 done
 [ ! -f /etc/asound.conf ] || mount --bind /etc/asound.conf "$root/etc/asound.conf"
+# The host's resolver, for PPSSPP's ad hoc and infrastructure servers.
+if [ -r /etc/resolv.conf ]; then
+    cp -L /etc/resolv.conf "$root/run/resolv.conf"
+    chmod 644 "$root/run/resolv.conf"
+    mount --bind "$root/run/resolv.conf" "$root/etc/resolv.conf"
+fi
 
-# The user's own files: /home and every card mounted under /media and /mnt.
-# PPSSPP runs as nobody and keeps its memory stick (saves, states, settings)
-# in its own save folder, so it reads games without writing to the card.
+# The user's own files: /home and every card mounted under /media and /mnt,
+# read-only. PPSSPP runs as nobody and keeps its memory stick (saves, states,
+# settings) in its own save folder. A card mounted after the start appears
+# too, with its own mount options; Gizlet OS mounts TF2 so that only root can
+# write to it.
 for dir in /home /media /mnt; do
     [ -d "$dir" ] || continue
-    mount --rbind "$dir" "$root$dir"
+    mount --rbind -o ro=recursive "$dir" "$root$dir" 2>/dev/null || mount --rbind "$dir" "$root$dir"
 done
 case $games in
     /home | /home/* | /media | /media/* | /mnt | /mnt/*) browse=$games ;;
@@ -56,17 +64,12 @@ case $games in
         ;;
 esac
 
-# PPSSPP's memory stick is $XDG_CONFIG_HOME/ppsspp, here /save/config/ppsspp.
-ini=$save/config/ppsspp/PSP/SYSTEM/ppsspp.ini
-mkdir -p "${ini%/*}"
-[ -f "$ini" ] || cp "$root/usr/share/gizlet-ppsspp/ppsspp.ini" "$ini"
+# The save folder belongs to PPSSPP's user. Root only hands it over; the
+# files in it are made by bin/start after privileges are dropped.
+chown -R -h "$user:$user" "$save"
+mount --bind "$save" "$root/save"
 language=en_US
 case ${GIZLET_LANG:-en} in zh*) language=zh_CN ;; esac
-"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General CurrentDirectory "$browse/"
-"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General CheckForNewVersion False
-"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General Language "$language"
-chown -R "$user:$user" "$save"
-mount --bind "$save" "$root/save"
 
 cd "$root"
 pivot_root . .
@@ -74,5 +77,6 @@ umount --internal-only --no-canonicalize --lazy .
 exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     HOME=/save XDG_CONFIG_HOME=/save/config XDG_RUNTIME_DIR=/tmp LANG=C.UTF-8 \
     SDL_VIDEODRIVER=kmsdrm SDL_AUDIODRIVER=alsa \
+    GIZLET_PPSSPP_BROWSE="$browse/" GIZLET_PPSSPP_LANGUAGE="$language" \
     setpriv --reuid=$user --regid=$user --groups="$groups" --no-new-privs \
-    /usr/lib/ppsspp/PPSSPPSDL
+    /usr/share/gizlet-ppsspp/start

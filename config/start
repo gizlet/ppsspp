@@ -1,0 +1,15 @@
+#!/bin/sh
+# Runs in the runtime as PPSSPP's user: sets up PPSSPP's memory stick in the
+# save folder ($XDG_CONFIG_HOME/ppsspp, /save/config/ppsspp) and starts PPSSPP
+# with its game browser in the folder for this launch.
+set -eu
+
+ini=$XDG_CONFIG_HOME/ppsspp/PSP/SYSTEM/ppsspp.ini
+mkdir -p "${ini%/*}"
+[ -e "$ini" ] || cp /usr/share/gizlet-ppsspp/ppsspp.ini "$ini"
+set_ini=/usr/share/gizlet-ppsspp/set-ini
+"$set_ini" "$ini" General CurrentDirectory "$GIZLET_PPSSPP_BROWSE"
+"$set_ini" "$ini" General CheckForNewVersion False
+"$set_ini" "$ini" General Language "$GIZLET_PPSSPP_LANGUAGE"
+unset GIZLET_PPSSPP_BROWSE GIZLET_PPSSPP_LANGUAGE
+exec /usr/lib/ppsspp/PPSSPPSDL

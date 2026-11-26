@@ -19,7 +19,9 @@ for binary in /usr/lib/ppsspp/PPSSPPSDL /tmp/PPSSPPHeadless; do
     fi
 done
 [ -f /usr/lib/ppsspp/assets/ppge_atlas.zim ] || { echo 'PPSSPP assets are missing' >&2; exit 1; }
-[ -z "$(find /usr/lib/ppsspp/assets/flash0 -name '*.pgf')" ] || { echo 'flash0 fonts must not ship' >&2; exit 1; }
+# PPSSPP's free replacement fonts, which games that draw with the PSP's
+# system fonts need.
+[ -f /usr/lib/ppsspp/assets/flash0/font/ltn0.pgf ] || { echo 'the replacement fonts are missing' >&2; exit 1; }
 
 set -- cpu/cpu_alu/cpu_alu cpu/fpu/fpu cpu/lsu/lsu
 for mode in -j --ir; do

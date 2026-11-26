@@ -102,13 +102,11 @@ mkdir -p "$runtime/usr/lib/ppsspp" "$runtime/usr/share/gizlet-ppsspp" "$runtime/
 src=$build_dir/build/root/ppsspp-$upstream
 install -m 0755 "$build_dir/build/root/build/PPSSPPSDL" "$runtime/usr/lib/ppsspp/PPSSPPSDL"
 cp -R "$src/assets" "$runtime/usr/lib/ppsspp/assets"
-# The PSP font files in flash0 come without license terms; PPSSPP draws
-# its own text without them, and users can add their own.
-rm -f "$runtime/usr/lib/ppsspp/assets/flash0/font/"*.pgf
 install -m 0644 "$src/LICENSE.TXT" "$runtime/usr/share/doc/ppsspp/LICENSE.TXT"
 install -m 0644 "$src/README.md" "$runtime/usr/share/doc/ppsspp/README.md"
 install -m 0644 "$project/config/ppsspp.ini" "$runtime/usr/share/gizlet-ppsspp/ppsspp.ini"
 install -m 0755 "$project/config/set-ini" "$runtime/usr/share/gizlet-ppsspp/set-ini"
+install -m 0755 "$project/config/start" "$runtime/usr/share/gizlet-ppsspp/start"
 mkdir -p "$runtime/save" "$runtime/media" "$runtime/mnt" "$runtime/home" \
     "$runtime/proc" "$runtime/sys" "$runtime/run" "$runtime/dev" "$runtime/tmp"
 touch "$runtime/etc/asound.conf"
@@ -136,6 +134,7 @@ in_chroot "$build_dir/build" "
 "
 
 rm -f "$runtime/etc/resolv.conf"
+touch "$runtime/etc/resolv.conf"
 rm -rf "$runtime/var/lib/apt/lists/"* "$runtime/var/cache/apt/"* "$runtime/var/log/"*
 find "$runtime/dev" -mindepth 1 -delete
 
