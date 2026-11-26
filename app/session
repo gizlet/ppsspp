@@ -1,0 +1,78 @@
+#!/bin/sh
+# Runs inside launch's mount and PID namespaces: mounts the runtime as the
+# root, makes the display, controls, sound, the user's folders and PPSSPP's
+# save folder visible in it, then starts PPSSPP as an unprivileged user.
+set -eu
+
+app_dir=$1
+root=$2
+save=$3
+games=$4
+user=65534
+
+mount -t squashfs -o loop,ro,nodev,nosuid "$app_dir/runtime.sqfs" "$root"
+mount -t proc -o nosuid,nodev,noexec proc "$root/proc"
+mount -t tmpfs -o nosuid,mode=0755 tmpfs "$root/dev"
+mount -t tmpfs -o nosuid,nodev,mode=1777 tmpfs "$root/tmp"
+mount -t tmpfs -o nosuid,nodev,mode=0755 tmpfs "$root/run"
+mount --bind /sys "$root/sys"
+mount -o remount,bind,ro,nosuid,nodev,noexec "$root/sys"
+
+for device in null zero random urandom full tty; do
+    touch "$root/dev/$device"
+    mount --bind "/dev/$device" "$root/dev/$device"
+done
+mkdir -m 1777 "$root/dev/shm"
+ln -s /proc/self/fd "$root/dev/fd"
+
+groups=$user
+for source in /dev/dri /dev/input /dev/snd /run/udev; do
+    [ -d "$source" ] || continue
+    mkdir -p "$root$source"
+    mount --bind "$source" "$root$source"
+    mount -o remount,bind,ro,nosuid,noexec "$root$source"
+done
+for device in /dev/dri/card* /dev/dri/renderD* /dev/input/event* /dev/snd/*; do
+    [ -c "$device" ] || continue
+    group=$(stat -c '%g' "$device")
+    case ",$groups," in *",$group,"*) ;; *) [ "$group" -eq 0 ] || groups="$groups,$group" ;; esac
+done
+[ ! -f /etc/asound.conf ] || mount --bind /etc/asound.conf "$root/etc/asound.conf"
+
+# The user's own files: /home and every card mounted under /media and /mnt.
+# PPSSPP runs as nobody and keeps its memory stick (saves, states, settings)
+# in its own save folder, so it reads games without writing to the card.
+for dir in /home /media /mnt; do
+    [ -d "$dir" ] || continue
+    mount --rbind "$dir" "$root$dir"
+done
+case $games in
+    /home | /home/* | /media | /media/* | /mnt | /mnt/*) browse=$games ;;
+    *)
+        mkdir "$root/run/games"
+        mount --bind "$games" "$root/run/games"
+        mount -o remount,bind,ro,nosuid,nodev,noexec "$root/run/games"
+        browse=/run/games
+        ;;
+esac
+
+# PPSSPP's memory stick is $XDG_CONFIG_HOME/ppsspp, here /save/config/ppsspp.
+ini=$save/config/ppsspp/PSP/SYSTEM/ppsspp.ini
+mkdir -p "${ini%/*}"
+[ -f "$ini" ] || cp "$root/usr/share/gizlet-ppsspp/ppsspp.ini" "$ini"
+language=en_US
+case ${GIZLET_LANG:-en} in zh*) language=zh_CN ;; esac
+"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General CurrentDirectory "$browse/"
+"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General CheckForNewVersion False
+"$root/usr/share/gizlet-ppsspp/set-ini" "$ini" General Language "$language"
+chown -R "$user:$user" "$save"
+mount --bind "$save" "$root/save"
+
+cd "$root"
+pivot_root . .
+umount --internal-only --no-canonicalize --lazy .
+exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+    HOME=/save XDG_CONFIG_HOME=/save/config XDG_RUNTIME_DIR=/tmp LANG=C.UTF-8 \
+    SDL_VIDEODRIVER=kmsdrm SDL_AUDIODRIVER=alsa \
+    setpriv --reuid=$user --regid=$user --groups="$groups" --no-new-privs \
+    /usr/lib/ppsspp/PPSSPPSDL

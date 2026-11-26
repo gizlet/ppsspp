@@ -1,0 +1,45 @@
+id = "io.gizlet.ppsspp"
+name = "PPSSPP"
+version = "1.20.4.1"
+category = "app"
+description = "PPSSPP 1.20.4, the PSP emulator, built from its upstream source for the R36S. Open the PSP games you already own."
+tags = ["emulator", "psp", "retro", "gamepad"]
+color = "#1F5F8B"
+license = "GPL-2.0-or-later"
+runtime = 1
+icon = "store/icon.png"
+
+[descriptions]
+zh-CN = "PSP 模拟器 PPSSPP 1.20.4，从上游源码为 R36S 构建。打开你自己拥有的 PSP 游戏。"
+
+[links]
+website = "https://www.ppsspp.org"
+
+[about]
+en = "store/about.en.md"
+zh-CN = "store/about.zh-CN.md"
+
+[[controls]]
+button = "dpad"
+action = "Move in the menus; the PSP's D-pad"
+actions = { zh-CN = "在菜单中移动；PSP 方向键" }
+
+[[controls]]
+button = "a"
+action = "Choose; the PSP's Circle"
+actions = { zh-CN = "确认；PSP 的圆圈键" }
+
+[[controls]]
+button = "b"
+action = "Back; the PSP's Cross"
+actions = { zh-CN = "返回；PSP 的叉键" }
+
+[[controls]]
+button = "l"
+action = "L2 opens PPSSPP's menu during a game"
+actions = { zh-CN = "游戏中按 L2 打开 PPSSPP 菜单" }
+
+[[packages]]
+target = "aarch64-unknown-linux-gnu"
+tier = "lite"
+entry = "bin/launch"
