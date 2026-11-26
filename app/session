@@ -85,5 +85,5 @@ exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     HOME=/save XDG_CONFIG_HOME=/save/config XDG_RUNTIME_DIR=/tmp LANG=C.UTF-8 \
     SDL_VIDEODRIVER=kmsdrm SDL_AUDIODRIVER=alsa \
     GIZLET_PPSSPP_BROWSE="$browse/" GIZLET_PPSSPP_LANGUAGE="$language" \
-    setpriv --reuid=$user --regid=$user --groups="$groups" --no-new-privs \
+    setpriv --reuid=$user --regid=$user --groups="$groups" --no-new-privs --pdeathsig keep \
     /usr/share/gizlet-ppsspp/start
