@@ -1,0 +1,21 @@
+#!/bin/sh
+# set-ini FILE SECTION KEY VALUE: sets KEY in [SECTION] of an INI file,
+# adding the key or the section when missing, and keeps everything else.
+set -eu
+file=$1 section=$2 key=$3 value=$4
+tmp=$file.new
+awk -v section="[$section]" -v key="$key" -v value="$value" '
+    function emit() { print key " = " value; done = 1 }
+    /^\[/ {
+        if (inside && !done) emit()
+        inside = ($0 == section)
+        if (inside) seen = 1
+    }
+    inside && !done && index($0, key) == 1 && match(substr($0, length(key) + 1), /^[ \t]*=/) { emit(); next }
+    { print }
+    END {
+        if (inside && !done) emit()
+        if (!seen) { print ""; print section; emit() }
+    }
+' "$file" > "$tmp"
+mv "$tmp" "$file"
